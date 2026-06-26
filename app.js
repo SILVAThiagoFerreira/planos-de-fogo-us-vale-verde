@@ -504,7 +504,7 @@ function renderMinis() {
 
 /* ---------- Tabela ---------- */
 const TABLE_COLS = [
-  { key: "plano", label: "Plano", align: "left", cls: "col-plano", val: (m) => m.plano, fmt: (v) => fmtInt(v) },
+  { key: "plano", label: "Plano", align: "left", val: (m) => m.plano, fmt: (v) => fmtInt(v) },
   { key: "date", label: "Data", val: (m) => m.prev.date, fmt: (v) => v ? `${String(v.getDate()).padStart(2, "0")}/${String(v.getMonth() + 1).padStart(2, "0")}/${v.getFullYear()}` : "—" },
   { key: "material", label: "Material", val: (m) => m.prev.material, fmt: (v) => v || "—" },
   { key: "prev", label: "Prev", val: (m, a) => m.prev.vals[a.key], fmt: (v, a) => v == null ? "—" : fmtNum(v, a.dec) },
@@ -568,7 +568,7 @@ function renderTable() {
   body.innerHTML = shown.map((m) =>
     `<tr>${cols.map((c) => {
       const v = c.val(m, a);
-      const cls = c.cls ? c.cls(v) : "";
+      const cls = typeof c.cls === "function" ? c.cls(v) : "";
       return `<td class="${c.align === "left" ? "col-plano" : ""} ${cls}">${c.fmt(v, a)}</td>`;
     }).join("")}</tr>`
   ).join("") || `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:18px">Nenhum plano casado no filtro atual.</td></tr>`;
