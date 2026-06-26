@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planos de Fogo · Previsto × Realizado · US Vale Verde</title>
+  <meta name="description" content="Planos de Fogo do desmonte — comparação do planejado (Previsto) com o executado (Realizado): séries temporais por aspecto, precisão do plano, tabela e filtros. US Vale Verde.">
+  <link rel="preconnect" href="https://docs.google.com">
+  <link rel="stylesheet" href="./styles.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <img class="topbar__logo" src="./assets/enaex-logo-white.png" alt="ENAEX">
+    <span class="topbar__title">Planos de Fogo</span>
+    <span class="topbar__unit">US VALE VERDE</span>
+  </header>
+
+  <main class="page">
+    <section class="page-head">
+      <div class="page-head__title">
+        <p class="eyebrow">PLANOS DE FOGO · PREVISTO × REALIZADO</p>
+        <h1>Desmonte Previsto e Realizado</h1>
+      </div>
+      <div class="filters">
+        <label class="filter">
+          <span>ANO</span>
+          <select id="filter-year"></select>
+        </label>
+        <label class="filter">
+          <span>MÊS</span>
+          <select id="filter-month"></select>
+        </label>
+        <label class="filter filter--wide">
+          <span>MATERIAL</span>
+          <select id="filter-material"></select>
+        </label>
+        <label class="filter filter--wide">
+          <span>MALHA / TIPO</span>
+          <select id="filter-malha"></select>
+        </label>
+        <button id="filter-reset" type="button" class="filter-reset">Limpar</button>
+      </div>
+    </section>
+
+    <p class="status" id="status" aria-live="polite">
+      <span class="status__dot" id="status-dot"></span>
+      <span id="status-text">Carregando planilhas…</span>
+      <span class="status__spacer"></span>
+      <span class="status__time" id="last-update"></span>
+    </p>
+
+    <div class="legend">
+      <span class="legend__item"><span class="legend__swatch" style="background:var(--prev)"></span>Previsto (planejado)</span>
+      <span class="legend__item"><span class="legend__swatch" style="background:var(--real)"></span>Realizado (execução)</span>
+      <span class="legend__item"><span class="legend__swatch legend__swatch--dot" style="background:var(--blue)"></span>Plano casado (Previsto &amp; Realizado)</span>
+    </div>
+
+    <div class="active-filters" id="active-filters" style="display:none"></div>
+
+    <section class="kpis" id="kpis">
+      <div class="kpi">
+        <p class="kpi__label">PLANOS PREVISTOS</p>
+        <p class="kpi__value" id="kpi-prev">—</p>
+        <p class="kpi__sub" id="kpi-prev-hint">Planejamentos de desmonte</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">PLANOS REALIZADOS</p>
+        <p class="kpi__value" id="kpi-real">—</p>
+        <p class="kpi__sub" id="kpi-real-hint">Desmontes executados</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">REALIZAÇÃO</p>
+        <p class="kpi__value" id="kpi-realiz">—</p>
+        <p class="kpi__sub" id="kpi-realiz-hint">Previstos com registro realizado</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">VOLUME DESMONTADO</p>
+        <p class="kpi__value" id="kpi-vol">—</p>
+        <p class="kpi__sub">m³ executados (realizado)</p>
+      </div>
+      <div class="kpi">
+        <p class="kpi__label">EXPLOSIVOS</p>
+        <p class="kpi__value" id="kpi-expl">—</p>
+        <p class="kpi__sub">t consumidas (realizado)</p>
+      </div>
+    </section>
+
+    <section class="chart-stack">
+      <div class="chart-block">
+        <div class="chart-block__head">
+          <div class="chart-block__head-text">
+            <h2>Evolução mensal — Previsto × Realizado</h2>
+            <p id="sub-main">Média mensal do aspecto selecionado · escolha o aspecto ao lado</p>
+          </div>
+          <label class="aspect-select">
+            <span>ASPECTO</span>
+            <select id="aspect-main"></select>
+          </label>
+        </div>
+        <div class="chart-block__body chart-block__body--tall"><canvas id="chart-main"></canvas></div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <div class="chart-block__head-text">
+              <h2>Precisão do plano — Previsto × Realizado</h2>
+              <p id="sub-parity">Cada ponto = 1 plano casado · linha = previsão perfeita (y = x)</p>
+            </div>
+          </div>
+          <div class="chart-block__body chart-block__body--tall"><canvas id="chart-parity"></canvas></div>
+        </div>
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <div class="chart-block__head-text">
+              <h2>Volume de desmonte por mês</h2>
+              <p>m³ previstos × realizados (somatório mensal)</p>
+            </div>
+          </div>
+          <div class="chart-block__body chart-block__body--tall"><canvas id="chart-volume"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <div class="chart-block__head-text">
+              <h2>Quantidade de planos por mês</h2>
+              <p>Nº de planos previstos × realizados</p>
+            </div>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-counts"></canvas></div>
+        </div>
+        <div class="chart-block chart-block--half">
+          <div class="chart-block__head">
+            <div class="chart-block__head-text">
+              <h2>Diferença média (Realizado − Previsto)</h2>
+              <p id="sub-diff">Desvio médio mensal do aspecto selecionado</p>
+            </div>
+          </div>
+          <div class="chart-block__body"><canvas id="chart-diff"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="extra-section">
+      <div class="extra-section__head">
+        <h2>Séries temporais por aspecto</h2>
+        <p>Média mensal de cada parâmetro do plano — Previsto (grafite) × Realizado (vermelho)</p>
+      </div>
+      <div id="extra-charts" class="extra-grid"></div>
+    </section>
+
+    <section class="table-block" style="margin-top:12px">
+      <div class="table-block__head">
+        <div>
+          <h2>Planos casados — Previsto × Realizado</h2>
+          <p>Planos com registro em ambas as bases · desvio do aspecto selecionado · clique no cabeçalho para ordenar</p>
+        </div>
+        <label class="table-search">
+          <span>BUSCAR PLANO</span>
+          <input id="table-search" type="text" placeholder="Nº do plano…">
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table class="data" id="table-planos">
+          <thead><tr id="table-head"></tr></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <p class="table-foot" id="table-foot"></p>
+    </section>
+
+    <p class="source-note">
+      <strong>Fonte:</strong> planilhas de Planos de Fogo da US Vale Verde — <em>Previsto</em> (295 planos, jan/2024–jun/2026) e
+      <em>Realizado</em> (957 desmontes, jun/2020–jun/2026), lidas em tempo real do Google Sheets.
+      <strong>Ligação entre bases:</strong> pelo número do <em>Plano</em> — quando o mesmo plano existe nas duas planilhas ele é
+      "casado", permitindo comparar o planejado com o executado (gráfico de precisão e tabela). Séries temporais agregam pela
+      média mensal de cada aspecto.
+      <strong>Aspectos comparáveis:</strong> diâmetro, afastamento, espaçamento, sub-furação, tampão, média de perfuração,
+      perfuração específica, nº de furos, carga máxima por espera, densidades (rocha e explosivo), razão linear de carga,
+      razão de carga (RC), volume desmontado e total de explosivos.
+      <strong>Materiais</strong> normalizados (unifica variações de digitação). Realização = planos previstos que possuem
+      registro realizado dentro do filtro. Valores ausentes são ignorados por gráfico.
+    </p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="./app.js?v=1"></script>
+</body>
+</html>
