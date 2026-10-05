@@ -2,18 +2,20 @@
 
 Dashboard estático (HTML/CSS/JS + Chart.js via CDN) que compara o
 **planejamento** (Previsto) com a **execução** (Realizado) dos desmontes
-da US Vale Verde. Lê as planilhas do Google Sheets no navegador (API gviz).
-Consulta os dados ao abrir, a cada cinco minutos, quando a aba volta ao
-primeiro plano e pelo botão **Atualizar**, sem servidor, build ou cron.
+da US Vale Verde. O GitHub Actions baixa os arquivos Excel da pasta
+compartilhada do Google Drive, converte os campos usados pelo painel e
+publica uma nova versão a cada hora (ou ao publicar uma alteração na `main`).
+Enquanto aberto, o painel busca a versão publicada a cada cinco minutos,
+ao voltar para a aba e pelo botão **Atualizar**.
 
 **Online:** <https://silvathiagoferreira.github.io/planos-de-fogo-us-vale-verde/>
 
 ## Fontes de dados
 
-| Base | Planilha (compartilhada “qualquer pessoa com o link”) | Período |
-|------|-------------------------------------------------------|---------|
-| Previsto  | Planos de Fogo Previsto  | variável; exibido dinamicamente no painel |
-| Realizado | Planos de Fogo Realizado | variável; exibido dinamicamente no painel |
+| Base | Arquivo do Drive | Período |
+|------|------------------|---------|
+| Previsto  | `Plano_Fogo_Previsto.xlsx`  | variável; exibido dinamicamente no painel |
+| Realizado | `Plano_Fogo_Realizado.xlsx` | variável; exibido dinamicamente no painel |
 
 As duas bases são **ligadas pelo identificador do *Plano***, preservando
 códigos numéricos e alfanuméricos como `PP590926` e `PC590926_B`: quando o mesmo plano
@@ -33,8 +35,12 @@ de Carga (RC) · Volume Desmontado · Total de Explosivos.
 - `index.html` / `styles.css` / `app.js` — aplicação (mesma linguagem visual
   do hub: `#38424B` + `#E20613`, cards brancos).
 - `assets/` — logos.
-- `.github/workflows/deploy-pages.yml` — publica no GitHub Pages a cada push
-  na `main`.
+- `scripts/build_data.py` — converte os `.xlsx` em dados compactos do painel,
+  preservando identificadores numéricos e alfanuméricos.
+- `data/` — cópia publicada apenas dos campos consumidos pelo dashboard; não
+  inclui coordenadas, cliente nem os demais campos de origem.
+- `.github/workflows/deploy-pages.yml` — sincroniza os arquivos do Drive a
+  cada hora e publica no GitHub Pages.
 - `.nojekyll` — serve os arquivos como-estão.
 
 Parte do hub de dashboards da US Vale Verde.

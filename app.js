@@ -1,15 +1,14 @@
 /* =====================================================================
    Planos de Fogo — Previsto × Realizado · US Vale Verde
-   Lê em tempo real as duas planilhas Google Sheets (gviz):
+   Lê os dados compactos gerados a partir dos arquivos do Google Drive:
      • Previsto  (planejamento dos desmontes)
      • Realizado (execução dos desmontes)
-   Casa os planos pelo número de "Plano" e compara cada aspecto
-   (séries temporais, precisão do plano, tabela). Sem servidor, sem build.
+   Casa os planos pelo identificador de "Plano" e compara cada aspecto
+   (séries temporais, precisão do plano, tabela). O GitHub Actions sincroniza
+   os arquivos de origem e publica a versão atualizada no GitHub Pages.
    ===================================================================== */
 
-const SHEET_PREV = "1n8jSyMyRKJnxtF12kjf5LqqFjZUVJ2Y5";
-const SHEET_REAL = "1lcbl-aQdmglzVNsk00LehVNZZkuDPHqm";
-const GVIZ = (id) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&headers=1&gid=0`;
+const DATA_URL = (name) => `./data/${name}.json?v=${Date.now()}`;
 
 /* --- Cores (mesma identidade do hub) --- */
 const C = {
@@ -134,13 +133,13 @@ function resolveMaterialCols(labels) {
   return out;
 }
 
-/* ---------- Parse gviz -> registros ----------
+/* ---------- Parse JSON do pipeline -> registros ----------
    `sheet` = "prev" | "real" decide quais rótulos buscar por aspecto. */
-function parseGviz(raw, sheet) {
-  const m = raw.match(/google\.visualization\.Query\.setResponse\((.*)\);\s*$/s);
-  if (!m) throw new Error("gviz: formato inesperado");
-  const table = JSON.parse(m[1]).table;
-  if (!table || !table.cols) throw new Error("gviz: sem colunas");
+function parseGviz(payload, sheet) {
+  const table = payload && payload.table;
+  if (!table || !Array.isArray(table.cols) || !Array.isArray(table.rows)) {
+    throw new Error(`dados ${sheet}: formato inesperado`);
+  }
 
   const labels = table.cols.map((c) => c.label || c.id || "");
   const iPlano = resolveCol(labels, ["Plano"]);
@@ -699,10 +698,12 @@ async function load() {
   refreshButton.textContent = "Atualizando…";
   setStatus("loading", state.ready ? "Atualizando planilhas…" : "Carregando planilhas…");
   try {
-    const [rPrev, rReal] = await Promise.all([
-      fetch(GVIZ(SHEET_PREV), { cache: "no-store" }).then((r) => r.text()),
-      fetch(GVIZ(SHEET_REAL), { cache: "no-store" }).then((r) => r.text()),
-    ]);
+    const fetchData = async (name) => {
+      const response = await fetch(DATA_URL(name), { cache: "no-store" });
+      if (!response.ok) throw new Error(`dados ${name}: HTTP ${response.status}`);
+      return response.json();
+    };
+    const [rPrev, rReal] = await Promise.all([fetchData("previsto"), fetchData("realizado")]);
 
     const P = parseGviz(rPrev, "prev"), R = parseGviz(rReal, "real");
     state.prev = P.records.filter((r) => r.plano != null || r.date != null);
@@ -724,15 +725,20 @@ async function load() {
     render();
 
     state.ready = true;
-    state.lastUpdatedAt = new Date();
-    const upd = `Atualizado em ${state.lastUpdatedAt.toLocaleString("pt-BR")}`;
+    const generatedAt = [rPrev.metadata?.generatedAt, rReal.metadata?.generatedAt]
+      .map((value) => value ? new Date(value) : null)
+      .filter((value) => value && isFinite(value.getTime()));
+    state.lastUpdatedAt = generatedAt.length
+      ? new Date(Math.max(...generatedAt.map((value) => value.getTime())))
+      : new Date();
+    const upd = `Dados sincronizados em ${state.lastUpdatedAt.toLocaleString("pt-BR")}`;
     setStatus("ok", `${state.prev.length} planos previstos · ${state.real.length} realizados · ${state.matched.length} casados`, upd);
   } catch (err) {
     console.error(err);
     if (state.ready) {
       setStatus("error", `Falha na atualização; mantendo os dados anteriores. ${err.message}`);
     } else {
-      setStatus("error", `Erro ao carregar: ${err.message}. Verifique se as planilhas estão acessíveis pelo link.`);
+      setStatus("error", `Erro ao carregar: ${err.message}. Verifique a sincronização do GitHub Pages.`);
     }
   } finally {
     load.inProgress = false;
