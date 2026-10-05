@@ -18,10 +18,12 @@ ao voltar para a aba e pelo botão **Atualizar**.
 | Realizado | `Plano_Fogo_Realizado.xlsx` | variável; exibido dinamicamente no painel |
 
 As duas bases são **ligadas pelo identificador do *Plano***, preservando
-códigos numéricos e alfanuméricos como `PP590926` e `PC590926_B`: quando o mesmo plano
-existe nas duas planilhas ele é “casado”, permitindo comparar o planejado
-com o executado (gráfico de precisão e tabela). As séries temporais agregam
-pela média (ou somatório, para volume/explosivos) mensal de cada aspecto.
+códigos numéricos e alfanuméricos como `PP590926` e `PC590926_B`. Os gráficos
+e desvios comparam somente planos presentes nos dois lados. A tabela lista a
+união dos códigos encontrados em qualquer base dentro dos filtros e informa
+se o registro correspondente está fora do período ou ausente na outra
+planilha. As séries temporais agregam pela média (ou somatório, para
+volume/explosivos) mensal de cada aspecto.
 
 ## Aspectos comparados
 

@@ -195,6 +195,7 @@ const state = {
   fPrev: [],  // filtrado previsto
   fReal: [],  // filtrado realizado
   matched: [],
+  tableRows: [],
   aspect: "rlcarga",
   year: "Todos", month: "Todos", material: "Todos", malha: "Todos",
   search: "",
@@ -231,6 +232,58 @@ function applyFilters() {
       state.matched.push({ plano: p.plano, prev: p, reals });
     }
   }
+
+  // A tabela precisa mostrar qualquer código presente no filtro, mesmo quando
+  // o registro só existe em uma base ou quando o plano correspondente está
+  // fora do período selecionado.
+  const allPrevByPlano = new Map();
+  for (const p of state.prev) {
+    if (p.plano == null) continue;
+    if (!allPrevByPlano.has(p.plano)) allPrevByPlano.set(p.plano, []);
+    allPrevByPlano.get(p.plano).push(p);
+  }
+  const allRealPlans = new Set(state.real.map((r) => r.plano).filter((plano) => plano != null));
+  const tableByPlano = new Map();
+  const getTableRow = (plano) => {
+    if (!tableByPlano.has(plano)) {
+      tableByPlano.set(plano, {
+        plano, prev: null, reals: [], prevInFilter: false, realInFilter: false,
+        hasPrevAny: allPrevByPlano.has(plano), hasRealAny: allRealPlans.has(plano),
+      });
+    }
+    return tableByPlano.get(plano);
+  };
+  for (const p of state.fPrev) {
+    if (p.plano == null) continue;
+    const row = getTableRow(p.plano);
+    if (!row.prev) row.prev = p;
+    row.prevInFilter = true;
+  }
+  for (const r of state.fReal) {
+    if (r.plano == null) continue;
+    const row = getTableRow(r.plano);
+    row.reals.push(r);
+    row.realInFilter = true;
+  }
+  for (const row of tableByPlano.values()) {
+    // Se a execução está no período e o planejamento foi feito antes, mantém
+    // o valor planejado visível para a comparação e mostra as duas datas.
+    if (!row.prev && row.realInFilter) {
+      row.prev = closestPrevRecord(allPrevByPlano.get(row.plano) || [], row.reals);
+    }
+  }
+  state.tableRows = [...tableByPlano.values()];
+}
+
+function closestPrevRecord(candidates, reals) {
+  if (!candidates.length) return null;
+  const realDates = reals.map((r) => r.date).filter(Boolean).map((date) => date.getTime());
+  if (!realDates.length) return candidates[0];
+  return candidates.reduce((closest, candidate) => {
+    if (!candidate.date) return closest;
+    const distance = Math.min(...realDates.map((time) => Math.abs(time - candidate.date.getTime())));
+    return !closest || distance < closest.distance ? { record: candidate, distance } : closest;
+  }, null)?.record || candidates[0];
 }
 
 /* ---------- Agregações ---------- */
@@ -512,21 +565,39 @@ function renderMinis() {
 
 /* ---------- Tabela ---------- */
 const TABLE_COLS = [
-  { key: "plano", label: "Plano", align: "left", val: (m) => m.plano, fmt: (v) => v || "—" },
-  { key: "date", label: "Data", val: (m) => m.prev.date, fmt: (v) => v ? `${String(v.getDate()).padStart(2, "0")}/${String(v.getMonth() + 1).padStart(2, "0")}/${v.getFullYear()}` : "—" },
-  { key: "material", label: "Material", val: (m) => m.prev.material, fmt: (v) => v || "—" },
-  { key: "prev", label: "Prev", val: (m, a) => m.prev.vals[a.key], fmt: (v, a) => v == null ? "—" : fmtNum(v, a.dec) },
+  { key: "plano", label: "Plano", align: "left", val: (m) => m.plano, fmt: (v) => escapeHtml(v || "—") },
+  { key: "status", label: "Situação", val: (m) => tableStatus(m), fmt: (v) => `<span class="table-status ${v === "Casado no filtro" ? "table-status--matched" : "table-status--partial"}">${escapeHtml(v)}</span>` },
+  { key: "datePrev", label: "Data Prev", val: (m) => m.prev?.date || null, fmt: (v) => formatDate(v) },
+  { key: "dateReal", label: "Data Real", val: (m) => formatRealDates(m.reals), fmt: (v) => escapeHtml(v || "—") },
+  { key: "material", label: "Material", val: (m) => m.prev?.material || m.reals[0]?.material || null, fmt: (v) => escapeHtml(v || "—") },
+  { key: "prev", label: "Prev", val: (m, a) => m.prev?.vals[a.key] ?? null, fmt: (v, a) => v == null ? "—" : fmtNum(v, a.dec) },
   { key: "real", label: "Real", val: (m, a) => avgReal(m, a), fmt: (v, a) => v == null ? "—" : fmtNum(v, a.dec) },
   { key: "delta", label: "Δ", val: (m, a) => delta(m, a), fmt: (v) => v == null ? "—" : (v >= 0 ? "+" : "") + fmtNum(v, currentAspect().dec), cls: (v) => v == null ? "" : v >= 0 ? "delta-pos" : "delta-neg" },
   { key: "deltap", label: "Δ %", val: (m, a) => deltaPct(m, a), fmt: (v) => v == null ? "—" : (v >= 0 ? "+" : "") + fmtNum(v, 1) + "%", cls: (v) => v == null ? "" : v >= 0 ? "delta-pos" : "delta-neg" },
 ];
+function tableStatus(m) {
+  if (m.prevInFilter && m.realInFilter) return "Casado no filtro";
+  if (m.prevInFilter && m.hasRealAny) return "Realizado fora do filtro";
+  if (m.realInFilter && m.hasPrevAny) return "Previsto fora do filtro";
+  if (m.prevInFilter) return "Só no Previsto";
+  return "Só no Realizado";
+}
+function formatDate(value) {
+  return value ? `${String(value.getDate()).padStart(2, "0")}/${String(value.getMonth() + 1).padStart(2, "0")}/${value.getFullYear()}` : "—";
+}
+function formatRealDates(records) {
+  return [...new Set(records.map((r) => r.date).filter(Boolean).map((date) => date.getTime()))]
+    .sort((a, b) => a - b)
+    .map((time) => formatDate(new Date(time)))
+    .join(", ");
+}
 function avgReal(m, a) {
   const ys = m.reals.map((r) => r.vals[a.key]).filter((v) => v != null && isFinite(v));
   if (!ys.length) return null;
   return ys.reduce((s, v) => s + v, 0) / ys.length;
 }
-function delta(m, a) { const p = m.prev.vals[a.key], r = avgReal(m, a); if (p == null || r == null) return null; return r - p; }
-function deltaPct(m, a) { const p = m.prev.vals[a.key], r = avgReal(m, a); if (p == null || r == null || p === 0) return null; return ((r - p) / Math.abs(p)) * 100; }
+function delta(m, a) { const p = m.prev?.vals[a.key], r = avgReal(m, a); if (p == null || r == null) return null; return r - p; }
+function deltaPct(m, a) { const p = m.prev?.vals[a.key], r = avgReal(m, a); if (p == null || r == null || p === 0) return null; return ((r - p) / Math.abs(p)) * 100; }
 
 function renderTable() {
   const a = currentAspect();
@@ -534,10 +605,10 @@ function renderTable() {
   const aspectLabel = a.label;
   // Cabeçalho dinâmico: Prev/Real do aspecto selecionado
   const cols = [
-    TABLE_COLS[0], TABLE_COLS[1], TABLE_COLS[2],
-    { ...TABLE_COLS[3], label: `${aspectLabel} · Prev` },
-    { ...TABLE_COLS[4], label: `${aspectLabel} · Real` },
-    TABLE_COLS[5], TABLE_COLS[6],
+    TABLE_COLS[0], TABLE_COLS[1], TABLE_COLS[2], TABLE_COLS[3], TABLE_COLS[4],
+    { ...TABLE_COLS[5], label: `${aspectLabel} · Prev` },
+    { ...TABLE_COLS[6], label: `${aspectLabel} · Real` },
+    TABLE_COLS[7], TABLE_COLS[8],
   ];
   head.innerHTML = cols.map((c) => {
     const isSort = state.sort.key === c.key;
@@ -552,7 +623,7 @@ function renderTable() {
     };
   });
 
-  let rows = state.matched.slice();
+  let rows = state.tableRows.slice();
   if (state.search.trim()) {
     const q = state.search.trim().toUpperCase();
     rows = rows.filter((m) => String(m.plano).includes(q));
@@ -573,20 +644,21 @@ function renderTable() {
   });
 
   const body = document.getElementById("table-body");
-  const LIMIT = 400;
-  const shown = rows.slice(0, LIMIT);
-  body.innerHTML = shown.map((m) =>
+  body.innerHTML = rows.map((m) =>
     `<tr>${cols.map((c) => {
       const v = c.val(m, a);
       const cls = typeof c.cls === "function" ? c.cls(v) : "";
-      return `<td class="${c.align === "left" ? "col-plano" : ""} ${cls}">${c.fmt(v, a)}</td>`;
+      return `<td class="${c.align === "left" ? "col-plano" : ""} ${cls}">${c.fmt(v, a, m)}</td>`;
     }).join("")}</tr>`
-  ).join("") || `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:18px">Nenhum plano casado no filtro atual.</td></tr>`;
+  ).join("") || `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:18px">Nenhum código encontrado no filtro atual.</td></tr>`;
 
   const foot = document.getElementById("table-foot");
-  foot.textContent = rows.length > LIMIT
-    ? `Mostrando ${LIMIT} de ${rows.length} planos casados · refine a busca para ver mais.`
-    : `${rows.length} plano(s) casado(s) no filtro atual · ${state.matched.length} no total.`;
+  const matchedCount = rows.filter((m) => m.prevInFilter && m.realInFilter).length;
+  foot.textContent = `${rows.length} código(s) em ao menos uma base no filtro · ${matchedCount} com registro nas duas bases no filtro.`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
 
 /* ---------- Util DOM ---------- */

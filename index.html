@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Planos de Fogo do desmonte — comparação do planejado (Previsto) com o executado (Realizado): séries temporais por aspecto, precisão do plano, tabela e filtros. US Vale Verde.">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="./styles.css?v=2">
+  <link rel="stylesheet" href="./styles.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -156,8 +156,8 @@
     <section class="table-block" style="margin-top:12px">
       <div class="table-block__head">
         <div>
-          <h2>Planos casados — Previsto × Realizado</h2>
-          <p>Planos com registro em ambas as bases · desvio do aspecto selecionado · clique no cabeçalho para ordenar</p>
+          <h2>Planos no filtro — Previsto × Realizado</h2>
+          <p>Lista todos os códigos presentes em ao menos uma base · confira a situação e as datas para identificar registros fora do filtro</p>
         </div>
         <label class="table-search">
           <span>BUSCAR PLANO</span>
@@ -177,8 +177,8 @@
       <strong>Fonte:</strong> arquivos Excel de Planos de Fogo da US Vale Verde na pasta compartilhada do Google Drive — <em>Previsto</em> (<span id="source-prev-summary">—</span>) e
       <em>Realizado</em> (<span id="source-real-summary">—</span>). Os arquivos são sincronizados para o GitHub Pages a cada hora.
       O painel consulta a versão publicada ao abrir, a cada 5 minutos e ao retornar à aba; também é possível atualizar pelo botão acima.
-      <strong>Ligação entre bases:</strong> pelo identificador do <em>Plano</em> — numérico ou alfanumérico — quando o mesmo plano existe nas duas planilhas ele é
-      "casado", permitindo comparar o planejado com o executado (gráfico de precisão e tabela). Séries temporais agregam pela
+      <strong>Ligação entre bases:</strong> pelo identificador do <em>Plano</em> — numérico ou alfanumérico. A tabela lista códigos presentes em qualquer base no filtro e mostra a situação da correspondência; o gráfico de precisão e os desvios só comparam planos com dados dos dois lados.
+      Se aparecer "fora do filtro", o mesmo código existe na outra base em outra data; "Só no Previsto" e "Só no Realizado" indicam que o código não foi localizado na outra planilha. Séries temporais agregam pela
       média mensal de cada aspecto.
       <strong>Aspectos comparáveis:</strong> diâmetro, afastamento, espaçamento, sub-furação, tampão, média de perfuração,
       perfuração específica, nº de furos, carga máxima por espera, densidades (rocha e explosivo), razão linear de carga,
@@ -189,6 +189,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>

@@ -448,6 +448,9 @@ table.data .grp-prev { color: var(--prev); }
 table.data .grp-real { color: var(--real); }
 table.data .delta-pos { color: var(--green); font-weight: 600; }
 table.data .delta-neg { color: var(--red); font-weight: 600; }
+.table-status { display: inline-block; border-radius: 999px; padding: 2px 7px; white-space: nowrap; font-size: 9px; font-weight: 600; }
+.table-status--matched { color: #146c2e; background: #e8f4eb; }
+.table-status--partial { color: #805b00; background: #fff4d6; }
 .table-foot { margin-top: 8px; font-size: 10.5px; color: var(--muted); }
 
 /* ---------- Source note ---------- */
