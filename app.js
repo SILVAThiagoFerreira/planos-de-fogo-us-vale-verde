@@ -101,6 +101,14 @@ const num = (v) => {
   const n = parseFloat(String(v).replace(/\s/g, "").replace(",", "."));
   return isFinite(n) ? n : null;
 };
+function planKey(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return isFinite(v) ? String(Math.round(v)) : null;
+  const raw = String(v).trim();
+  if (!raw) return null;
+  if (/^\d+(?:\.0+)?$/.test(raw)) return raw.replace(/\.0+$/, "");
+  return raw.toUpperCase().replace(/\s+/g, " ");
+}
 
 /* ---------- Resolução de colunas por rótulo normalizado ---------- */
 function resolveCol(labels, cands) {
@@ -147,7 +155,7 @@ function parseGviz(raw, sheet) {
     const c = row.c || [];
     const get = (i) => (i >= 0 && c[i] ? c[i].v : null);
 
-    const plano = num(get(iPlano));
+    const plano = planKey(get(iPlano));
     const date = parseDateCell(get(iData));
     if (plano == null && date == null) continue; // linha vazia
 
@@ -166,7 +174,7 @@ function parseGviz(raw, sheet) {
     for (const a of ASPECTS) vals[a.key] = num(get(aspectIdx[a.key]));
 
     records.push({
-      plano: plano != null ? Math.round(plano) : null,
+      plano,
       date,
       year: date ? date.getFullYear() : null,
       month: date ? date.getMonth() + 1 : null,
@@ -182,6 +190,7 @@ function parseGviz(raw, sheet) {
 /* ---------- Estado ---------- */
 const state = {
   ready: false,
+  lastUpdatedAt: null,
   prev: [],   // records previsto
   real: [],   // records realizado
   fPrev: [],  // filtrado previsto
@@ -504,7 +513,7 @@ function renderMinis() {
 
 /* ---------- Tabela ---------- */
 const TABLE_COLS = [
-  { key: "plano", label: "Plano", align: "left", val: (m) => m.plano, fmt: (v) => fmtInt(v) },
+  { key: "plano", label: "Plano", align: "left", val: (m) => m.plano, fmt: (v) => v || "—" },
   { key: "date", label: "Data", val: (m) => m.prev.date, fmt: (v) => v ? `${String(v.getDate()).padStart(2, "0")}/${String(v.getMonth() + 1).padStart(2, "0")}/${v.getFullYear()}` : "—" },
   { key: "material", label: "Material", val: (m) => m.prev.material, fmt: (v) => v || "—" },
   { key: "prev", label: "Prev", val: (m, a) => m.prev.vals[a.key], fmt: (v, a) => v == null ? "—" : fmtNum(v, a.dec) },
@@ -546,7 +555,7 @@ function renderTable() {
 
   let rows = state.matched.slice();
   if (state.search.trim()) {
-    const q = state.search.trim();
+    const q = state.search.trim().toUpperCase();
     rows = rows.filter((m) => String(m.plano).includes(q));
   }
   const sortKey = state.sort.key, dir = state.sort.dir;
@@ -558,7 +567,9 @@ function renderTable() {
     if (v2 == null) return -1;
     if (v1 instanceof Date) v1 = v1.getTime();
     if (v2 instanceof Date) v2 = v2.getTime();
-    if (typeof v1 === "string") return v1.localeCompare(v2) * dir;
+    if (typeof v1 === "string" || typeof v2 === "string") {
+      return String(v1).localeCompare(String(v2), "pt-BR", { numeric: true, sensitivity: "base" }) * dir;
+    }
     return (v1 - v2) * dir;
   });
 
@@ -589,6 +600,14 @@ function syncSelects() {
   document.getElementById("aspect-main").value = state.aspect;
 }
 
+function retainAvailableFilters() {
+  const options = (id) => new Set([...document.getElementById(id).options].map((option) => option.value));
+  if (!options("filter-year").has(state.year)) state.year = "Todos";
+  if (!options("filter-month").has(state.month)) state.month = "Todos";
+  if (!options("filter-material").has(state.material)) state.material = "Todos";
+  if (!options("filter-malha").has(state.malha)) state.malha = "Todos";
+}
+
 /* ---------- Render geral ---------- */
 function render() {
   applyFilters();
@@ -602,6 +621,18 @@ function render() {
   renderDiff();
   renderMinis();
   renderTable();
+}
+
+function periodSummary(records, label) {
+  const dates = records.map((record) => record.date).filter(Boolean).sort((a, b) => a - b);
+  if (!dates.length) return `${fmtInt(records.length)} ${label} · sem datas`;
+  const monthYear = (date) => `${MON[date.getMonth()].toLowerCase()}/${date.getFullYear()}`;
+  return `${fmtInt(records.length)} ${label} · ${monthYear(dates[0])}–${monthYear(dates[dates.length - 1])}`;
+}
+
+function renderSourceSummary() {
+  setText("source-prev-summary", periodSummary(state.prev, "planos"));
+  setText("source-real-summary", periodSummary(state.real, "desmontes"));
 }
 
 /* ---------- Inicialização dos filtros ---------- */
@@ -637,6 +668,7 @@ function bindEvents() {
   document.getElementById("filter-material").onchange = (e) => { state.material = e.target.value; render(); };
   document.getElementById("filter-malha").onchange = (e) => { state.malha = e.target.value; render(); };
   document.getElementById("aspect-main").onchange = (e) => { state.aspect = e.target.value; render(); };
+  document.getElementById("refresh-data").onclick = load;
   document.getElementById("filter-reset").onclick = () => {
     state.year = state.month = state.material = state.malha = "Todos";
     syncSelects(); render();
@@ -659,7 +691,13 @@ function setStatus(kind, text, time) {
 
 /* ---------- Carga ---------- */
 async function load() {
-  setStatus("loading", "Carregando planilhas…");
+  if (load.inProgress) return;
+  load.inProgress = true;
+  load.startedAt = Date.now();
+  const refreshButton = document.getElementById("refresh-data");
+  refreshButton.disabled = true;
+  refreshButton.textContent = "Atualizando…";
+  setStatus("loading", state.ready ? "Atualizando planilhas…" : "Carregando planilhas…");
   try {
     const [rPrev, rReal] = await Promise.all([
       fetch(GVIZ(SHEET_PREV), { cache: "no-store" }).then((r) => r.text()),
@@ -669,6 +707,7 @@ async function load() {
     const P = parseGviz(rPrev, "prev"), R = parseGviz(rReal, "real");
     state.prev = P.records.filter((r) => r.plano != null || r.date != null);
     state.real = R.records.filter((r) => r.plano != null || r.date != null);
+    renderSourceSummary();
 
     // diagnósticos de resolução de colunas
     const missing = [];
@@ -680,16 +719,30 @@ async function load() {
 
     buildMiniGrid();
     populateFilters();
-    bindEvents();
+    retainAvailableFilters();
     syncSelects();
     render();
 
-    const upd = `Atualizado em ${new Date().toLocaleString("pt-BR")}`;
+    state.ready = true;
+    state.lastUpdatedAt = new Date();
+    const upd = `Atualizado em ${state.lastUpdatedAt.toLocaleString("pt-BR")}`;
     setStatus("ok", `${state.prev.length} planos previstos · ${state.real.length} realizados · ${state.matched.length} casados`, upd);
   } catch (err) {
     console.error(err);
-    setStatus("error", `Erro ao carregar: ${err.message}. Verifique se as planilhas estão compartilhadas como “qualquer pessoa com o link”.`);
+    if (state.ready) {
+      setStatus("error", `Falha na atualização; mantendo os dados anteriores. ${err.message}`);
+    } else {
+      setStatus("error", `Erro ao carregar: ${err.message}. Verifique se as planilhas estão acessíveis pelo link.`);
+    }
+  } finally {
+    load.inProgress = false;
+    refreshButton.disabled = false;
+    refreshButton.textContent = "Atualizar";
   }
+}
+
+function refreshWhenResumed() {
+  if (!document.hidden && Date.now() - (load.startedAt || 0) >= 30_000) load();
 }
 
 Chart.defaults.font.family = '"Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
@@ -697,4 +750,10 @@ Chart.defaults.font.size = 11;
 Chart.defaults.color = C.text;
 Chart.defaults.borderColor = C.grid;
 
-document.addEventListener("DOMContentLoaded", load);
+document.addEventListener("DOMContentLoaded", () => {
+  bindEvents();
+  load();
+  window.setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+  window.addEventListener("focus", refreshWhenResumed);
+  document.addEventListener("visibilitychange", refreshWhenResumed);
+});

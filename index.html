@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./assets/enaex-favicon.png">
   <meta name="description" content="Planos de Fogo do desmonte — comparação do planejado (Previsto) com o executado (Realizado): séries temporais por aspecto, precisão do plano, tabela e filtros. US Vale Verde.">
   <link rel="preconnect" href="https://docs.google.com">
-  <link rel="stylesheet" href="./styles.css?v=1">
+  <link rel="stylesheet" href="./styles.css?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -47,6 +47,7 @@
       <span class="status__dot" id="status-dot"></span>
       <span id="status-text">Carregando planilhas…</span>
       <span class="status__spacer"></span>
+      <button id="refresh-data" class="status__refresh" type="button">Atualizar</button>
       <span class="status__time" id="last-update"></span>
     </p>
 
@@ -160,7 +161,7 @@
         </div>
         <label class="table-search">
           <span>BUSCAR PLANO</span>
-          <input id="table-search" type="text" placeholder="Nº do plano…">
+          <input id="table-search" type="text" placeholder="Nº ou código do plano…">
         </label>
       </div>
       <div class="table-wrap">
@@ -173,9 +174,10 @@
     </section>
 
     <p class="source-note">
-      <strong>Fonte:</strong> planilhas de Planos de Fogo da US Vale Verde — <em>Previsto</em> (295 planos, jan/2024–jun/2026) e
-      <em>Realizado</em> (957 desmontes, jun/2020–jun/2026), lidas em tempo real do Google Sheets.
-      <strong>Ligação entre bases:</strong> pelo número do <em>Plano</em> — quando o mesmo plano existe nas duas planilhas ele é
+      <strong>Fonte:</strong> planilhas de Planos de Fogo da US Vale Verde — <em>Previsto</em> (<span id="source-prev-summary">—</span>) e
+      <em>Realizado</em> (<span id="source-real-summary">—</span>), consultadas pelo Google Sheets.
+      O painel busca alterações ao abrir, a cada 5 minutos e ao retornar à aba; também é possível atualizar pelo botão acima.
+      <strong>Ligação entre bases:</strong> pelo identificador do <em>Plano</em> — numérico ou alfanumérico — quando o mesmo plano existe nas duas planilhas ele é
       "casado", permitindo comparar o planejado com o executado (gráfico de precisão e tabela). Séries temporais agregam pela
       média mensal de cada aspecto.
       <strong>Aspectos comparáveis:</strong> diâmetro, afastamento, espaçamento, sub-furação, tampão, média de perfuração,
@@ -187,6 +189,6 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>

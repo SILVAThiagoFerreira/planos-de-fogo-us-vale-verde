@@ -171,6 +171,18 @@ body {
 .status.is-error { color: var(--red); }
 .status__spacer { flex: 1; }
 .status__time { color: var(--faint); }
+.status__refresh {
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.status__refresh:hover:not(:disabled) { color: var(--red); border-color: var(--red); }
+.status__refresh:disabled { opacity: .65; cursor: wait; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
 /* ---------- Legend (Previsto × Realizado) ---------- */
